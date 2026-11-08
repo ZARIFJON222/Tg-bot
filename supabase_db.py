@@ -445,9 +445,20 @@ class SupabaseFSMStorage(BaseStorage):
     """Persistent FSM storage stored in Supabase bot_fsm table."""
     def __init__(self, sdb: SupabaseDB):
         self.sdb = sdb
+        self._state_cache: Dict[tuple, Optional[str]] = {}
+        self._data_cache: Dict[tuple, Dict[str, Any]] = {}
 
     async def set_state(self, key: StorageKey, state: StateType = None) -> None:
-        state_str = state.state if isinstance(state, StateType) else state
+        if state is None:
+            state_str = None
+        elif hasattr(state, "state"):
+            state_str = state.state
+        else:
+            state_str = str(state)
+
+        cache_k = (key.chat_id, key.user_id)
+        self._state_cache[cache_k] = state_str
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 await client.post(
@@ -463,6 +474,10 @@ class SupabaseFSMStorage(BaseStorage):
             logger.error(f"FSM set_state error: {e}")
 
     async def get_state(self, key: StorageKey) -> Optional[str]:
+        cache_k = (key.chat_id, key.user_id)
+        if cache_k in self._state_cache:
+            return self._state_cache[cache_k]
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 r = await client.get(
@@ -472,12 +487,17 @@ class SupabaseFSMStorage(BaseStorage):
                 if r.status_code == 200:
                     rows = r.json()
                     if rows:
-                        return rows[0].get("state")
+                        st = rows[0].get("state")
+                        self._state_cache[cache_k] = st
+                        return st
         except Exception as e:
             logger.error(f"FSM get_state error: {e}")
         return None
 
     async def set_data(self, key: StorageKey, data: Dict[str, Any]) -> None:
+        cache_k = (key.chat_id, key.user_id)
+        self._data_cache[cache_k] = data or {}
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 await client.post(
@@ -493,6 +513,10 @@ class SupabaseFSMStorage(BaseStorage):
             logger.error(f"FSM set_data error: {e}")
 
     async def get_data(self, key: StorageKey) -> Dict[str, Any]:
+        cache_k = (key.chat_id, key.user_id)
+        if cache_k in self._data_cache:
+            return self._data_cache[cache_k]
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 r = await client.get(
@@ -501,8 +525,10 @@ class SupabaseFSMStorage(BaseStorage):
                 )
                 if r.status_code == 200:
                     rows = r.json()
-                    if rows and rows[0].get("data"):
-                        return rows[0]["data"]
+                    if rows and rows[0].get("data") is not None:
+                        d = rows[0]["data"]
+                        self._data_cache[cache_k] = d
+                        return d
         except Exception as e:
             logger.error(f"FSM get_data error: {e}")
         return {}
