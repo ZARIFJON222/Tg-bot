@@ -1,0 +1,25 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment & Sensitive files
+.env
+.env.local
+*.bak
+*.bak*
+*.enc
+database.json
+database.json.tmp
+
+# Vercel
+.vercel/
+
+# OS files
+.DS_Store
+Thumbs.db
