@@ -9,11 +9,22 @@ from aiogram.fsm.storage.base import BaseStorage, StorageKey, StateType
 
 logger = logging.getLogger("supabase_db")
 
+def _load_env_fallback():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    k, v = k.strip(), v.strip().strip("'\"")
+                    if k not in os.environ:
+                        os.environ[k] = v
+
+_load_env_fallback()
+
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://pantkdwqeviiuosgptcs.supabase.co")
-SUPABASE_KEY = os.getenv(
-    "SUPABASE_KEY",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhbnRrZHdxZXZpaXVvc2dwdGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxMzI3MjQsImV4cCI6MjEwOTcwODcyNH0.eulH-oa7SmnRLeYq0yrO6GRYSjnkIvXbQD0GrgKs0yI",
-)
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 DB_LOCAL_BACKUP = os.path.join(os.path.dirname(__file__), "database.json")
 
 def _get_headers() -> Dict[str, str]:

@@ -15,6 +15,8 @@ from main import bot, dp, sdb, init_app
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("vercel_webhook")
 
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
+
 app = FastAPI(title="Telegram Bot on Vercel")
 
 
@@ -41,6 +43,12 @@ async def health_check():
 @app.post("/api/webhook")
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
+    if WEBHOOK_SECRET:
+        secret_header = request.headers.get("x-telegram-bot-api-secret-token")
+        if secret_header != WEBHOOK_SECRET:
+            logger.warning("Rejected unauthorized webhook request: invalid secret token")
+            return Response(content="Unauthorized", status_code=status.HTTP_403_FORBIDDEN)
+
     if not sdb._initialized:
         await sdb.load_all()
 
